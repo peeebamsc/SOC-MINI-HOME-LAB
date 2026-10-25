@@ -1,0 +1,85 @@
+name: soc-lab
+
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+
+    container_name: soc-lab-api
+
+    ports:
+      - "127.0.0.1:8010:8010"
+
+    environment:
+      SOC_LAB_DB_PATH: /app/data/soc_lab.db
+
+    volumes:
+      - ./data:/app/data
+
+    command:
+      - python
+      - -m
+      - uvicorn
+      - backend.api.app:app
+      - --host
+      - 0.0.0.0
+      - --port
+      - "8010"
+
+      - --no-access-log
+
+    restart: unless-stopped
+
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8010/health', timeout=5)"
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+
+  dashboard:
+    build:
+      context: .
+      dockerfile: Dockerfile
+
+    container_name: soc-lab-dashboard
+
+    ports:
+      - "127.0.0.1:8502:8502"
+
+    environment:
+      SOC_LAB_API_URL: http://api:8010
+
+    depends_on:
+      - api
+
+    command:
+      - python
+      - -m
+      - streamlit
+      - run
+      - dashboard/app.py
+      - --server.address
+      - 0.0.0.0
+      - --server.port
+      - "8502"
+      - --server.headless
+      - "true"
+
+    restart: unless-stopped
+
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8502/_stcore/health', timeout=5)"
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
